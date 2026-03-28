@@ -1,18 +1,33 @@
 import ast
 import pandas as pd
 import numpy as np
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import f1_score, accuracy_score
 from sklearn.preprocessing import MultiLabelBinarizer
+from sentence_transformers import SentenceTransformer
+import torch
+
+#use our gpu
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+    print("Using GPU")
+else:
+    device = torch.device("cpu")
+    print("Using CPU")
+
+model = SentenceTransformer("google/embeddinggemma-300m")
+model.to(device)
+
 
 df = pd.read_csv("arxiv_data.csv")
 df = df.dropna()
 
 # terms are stored as Python list strings like ['cs.CV', 'cs.LG'], so parse them properly
 df["terms"] = df["terms"].apply(ast.literal_eval)
+
 
 subset = df.sample(n=20000, random_state=42)
 train_subset, test_subset = train_test_split(subset, test_size=0.2, random_state=42)
@@ -22,16 +37,14 @@ mlb = MultiLabelBinarizer()
 y_train = mlb.fit_transform(train_subset["terms"])
 y_test = mlb.transform(test_subset["terms"])
 
-# fit_transform on train text, transform (no refit) on test text
-vectorizer = CountVectorizer(stop_words="english", max_features=10000)
-X_train = vectorizer.fit_transform(train_subset["summaries"])
-X_test = vectorizer.transform(test_subset["summaries"])
 
-print("X_train shape:", X_train.shape)
-print("X_test shape:", X_test.shape)
-print("y_train shape:", y_train.shape)
-print("y_test shape:", y_test.shape)
-print("Categories:", mlb.classes_)
+
+#embed the text
+print("Encoding train summaries...")
+X_train = model.encode(train_subset["summaries"])
+X_test = model.encode(test_subset["summaries"])
+
+
 
 # OneVsRestClassifier trains one binary classifier per category
 classifier = OneVsRestClassifier(RandomForestClassifier(n_estimators=100, random_state=42))
