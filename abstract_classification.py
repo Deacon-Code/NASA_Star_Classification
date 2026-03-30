@@ -41,8 +41,8 @@ y_test = mlb.transform(test_subset["terms"])
 
 #embed the text
 print("Encoding train summaries...")
-X_train = model.encode(train_subset["summaries"])
-X_test = model.encode(test_subset["summaries"])
+X_train = model.encode(train_subset["summaries"].tolist())
+X_test = model.encode(test_subset["summaries"].tolist())
 
 
 
